@@ -1,0 +1,56 @@
+# 构建目录
+build/
+
+# 模型文件（可选，根据需要调整）
+# models/
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker相关
+.dockerignore
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编译生成的文件
+*.o
+*.so
+*.a
+*.lib
+*.exe
+*.dll
+
+# 自动生成的文件
+*.pb.h
+*.pb.cc
+*.grpc.pb.h
+*.grpc.pb.cc
+
+# 缓存文件
+.cache/
+
+# 测试文件
+*test*
+
+# 脚本文件
+*.sh
+*.pyc
+
+# 环境文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

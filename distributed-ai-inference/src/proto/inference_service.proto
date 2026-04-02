@@ -1,0 +1,234 @@
+syntax = "proto3";
+
+package distributed_inference;
+
+// option cc_generic_services = false;
+
+// 推理服务定义
+service InferenceService {
+  // 单张图片推理
+  rpc Predict(PredictRequest) returns (PredictResponse);
+  
+  // 批量图片推理
+  rpc BatchPredict(BatchPredictRequest) returns (BatchPredictResponse);
+  
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  
+  // 获取服务状态
+  rpc GetServiceStatus(ServiceStatusRequest) returns (ServiceStatusResponse);
+  
+  // 模型热加载
+  rpc LoadModel(LoadModelRequest) returns (LoadModelResponse);
+  
+  // 卸载模型
+  rpc UnloadModel(UnloadModelRequest) returns (UnloadModelResponse);
+}
+
+// 输入数据类型枚举
+enum InputType {
+  INPUT_TYPE_UNSPECIFIED = 0;
+  INPUT_TYPE_IMAGE = 1;      // 图片数据
+  INPUT_TYPE_TENSOR = 2;     // 张量数据
+  INPUT_TYPE_RAW_BYTES = 3;  // 原始字节
+}
+
+// 推理任务类型枚举
+enum TaskType {
+  TASK_TYPE_UNSPECIFIED = 0;
+  TASK_TYPE_DETECTION = 1;      // 目标检测 (YOLO等)
+  TASK_TYPE_CLASSIFICATION = 2; // 图像分类 (ResNet等)
+  TASK_TYPE_SEGMENTATION = 3;   // 图像分割
+  TASK_TYPE_OCR = 4;            // OCR识别
+}
+
+// 图片格式枚举
+enum ImageFormat {
+  IMAGE_FORMAT_UNSPECIFIED = 0;
+  IMAGE_FORMAT_JPEG = 1;
+  IMAGE_FORMAT_PNG = 2;
+  IMAGE_FORMAT_BMP = 3;
+  IMAGE_FORMAT_RAW = 4;
+}
+
+// 边界框定义 (用于目标检测)
+message BoundingBox {
+  float x = 1;        // 左上角x坐标
+  float y = 2;        // 左上角y坐标
+  float width = 3;    // 宽度
+  float height = 4;   // 高度
+  float confidence = 5; // 置信度
+  int32 class_id = 6;   // 类别ID
+  string class_name = 7; // 类别名称
+}
+
+// 分类结果定义
+message ClassificationResult {
+  int32 class_id = 1;      // 类别ID
+  string class_name = 2;   // 类别名称
+  float confidence = 3;    // 置信度
+}
+
+// 输入张量定义
+message Tensor {
+  repeated int64 shape = 1;     // 张量形状
+  repeated float float_data = 2; // float32数据
+  repeated int32 int_data = 3;   // int32数据
+  string data_type = 4;          // 数据类型: "float32", "int32", "uint8"
+}
+
+// 图片输入定义
+message ImageInput {
+  bytes image_data = 1;          // 图片二进制数据
+  ImageFormat format = 2;        // 图片格式
+  int32 target_width = 3;        // 目标宽度 (可选，用于预处理)
+  int32 target_height = 4;       // 目标高度 (可选，用于预处理)
+  bool keep_aspect_ratio = 5;    // 是否保持宽高比
+}
+
+// 推理请求
+message PredictRequest {
+  string request_id = 1;         // 请求唯一标识
+  string model_name = 2;         // 模型名称
+  string model_version = 3;      // 模型版本 (可选，默认最新)
+  TaskType task_type = 4;        // 任务类型
+  InputType input_type = 5;      // 输入类型
+  
+  oneof input_data {
+    ImageInput image = 6;        // 图片输入
+    Tensor tensor = 7;           // 张量输入
+    bytes raw_bytes = 8;         // 原始字节输入
+  }
+  
+  map<string, string> metadata = 9;  // 额外元数据
+  int32 timeout_ms = 10;         // 超时时间(毫秒)，默认5000
+}
+
+// 推理响应
+message PredictResponse {
+  string request_id = 1;         // 请求ID
+  bool success = 2;              // 是否成功
+  string error_message = 3;      // 错误信息
+  int64 inference_time_ms = 4;   // 推理耗时(毫秒)
+  string model_name = 5;         // 实际使用的模型名称
+  string model_version = 6;      // 实际使用的模型版本
+  
+  oneof result {
+    DetectionResult detection = 7;       // 检测结果
+    ClassificationResult classification = 8; // 分类结果
+    SegmentationResult segmentation = 9; // 分割结果
+    Tensor output_tensor = 10;           // 原始输出张量
+  }
+  
+  map<string, string> metadata = 11; // 额外元数据
+}
+
+// 检测结果
+message DetectionResult {
+  repeated BoundingBox boxes = 1;  // 检测框列表
+  int32 image_width = 2;           // 原始图片宽度
+  int32 image_height = 3;          // 原始图片高度
+}
+
+// 分割结果
+message SegmentationResult {
+  Tensor mask = 1;                 // 分割掩码张量
+  int32 image_width = 2;           // 原始图片宽度
+  int32 image_height = 3;          // 原始图片高度
+}
+
+// 批量推理请求
+message BatchPredictRequest {
+  string batch_id = 1;           // 批次ID
+  repeated PredictRequest requests = 2; // 单个请求列表
+  bool allow_partial_success = 3; // 是否允许部分成功
+}
+
+// 批量推理响应
+message BatchPredictResponse {
+  string batch_id = 1;           // 批次ID
+  bool success = 2;              // 整体是否成功
+  string error_message = 3;      // 错误信息
+  repeated PredictResponse responses = 4; // 响应列表
+  int64 total_inference_time_ms = 5; // 总推理耗时
+  int32 success_count = 6;       // 成功数量
+  int32 failed_count = 7;        // 失败数量
+}
+
+// 健康检查请求
+message HealthCheckRequest {
+  string service_id = 1;         // 服务ID (可选)
+}
+
+// 健康检查响应
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+    SERVICE_UNKNOWN = 3;
+  }
+  ServingStatus status = 1;
+  string service_id = 2;         // 服务ID
+  int64 timestamp = 3;           // 时间戳
+  string version = 4;            // 服务版本
+}
+
+// 服务状态请求
+message ServiceStatusRequest {
+  bool include_model_status = 1; // 是否包含模型状态
+}
+
+// 模型状态
+message ModelStatus {
+  string model_name = 1;
+  string model_version = 2;
+  bool is_loaded = 3;
+  int64 load_time_ms = 4;
+  int64 inference_count = 5;
+  float avg_inference_time_ms = 6;
+  int64 last_inference_time_ms = 7;
+}
+
+// 服务状态响应
+message ServiceStatusResponse {
+  string service_id = 1;
+  string service_version = 2;
+  int64 uptime_seconds = 3;
+  int32 total_requests = 4;
+  int32 active_requests = 5;
+  float cpu_usage_percent = 6;
+  float memory_usage_percent = 7;
+  repeated ModelStatus model_status = 8;
+  map<string, string> extra_info = 9;
+}
+
+// 模型加载请求
+message LoadModelRequest {
+  string model_name = 1;
+  string model_version = 2;
+  string model_path = 3;         // 模型文件路径或URL
+  map<string, string> config = 4; // 模型配置参数
+  bool force_reload = 5;         // 是否强制重新加载
+}
+
+// 模型加载响应
+message LoadModelResponse {
+  bool success = 1;
+  string error_message = 2;
+  string model_name = 3;
+  string model_version = 4;
+  int64 load_time_ms = 5;
+}
+
+// 模型卸载请求
+message UnloadModelRequest {
+  string model_name = 1;
+  string model_version = 2;
+}
+
+// 模型卸载响应
+message UnloadModelResponse {
+  bool success = 1;
+  string error_message = 2;
+}
